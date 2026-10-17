@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="botc">
+    <!-- A clock face with one hour gone dark. The town wakes and sleeps by the
+         clock and somebody is missing each time it comes round, which is as
+         much of this game as a 16px mark can hold. -->
+    <rect width="32" height="32" rx="6" fill="#140202"/>
+    <circle cx="16" cy="16" r="12" fill="none" stroke="#aa0000" stroke-width="2.4"/>
+    <g fill="#558dfe">
+        <circle cx="16" cy="6.6" r="1.7"/><circle cx="22.6" cy="9.4" r="1.7"/>
+        <circle cx="25.4" cy="16" r="1.7"/><circle cx="22.6" cy="22.6" r="1.7"/>
+        <circle cx="9.4" cy="22.6" r="1.7"/><circle cx="6.6" cy="16" r="1.7"/>
+        <circle cx="9.4" cy="9.4" r="1.7"/>
+    </g>
+    <circle cx="16" cy="25.4" r="2.6" fill="#aa0000"/>
+    <g stroke="#558dfe" stroke-width="2.2" stroke-linecap="round">
+        <path d="M16 16 V9.6"/><path d="M16 16 L20.6 18.8"/>
+    </g>
+</svg>

@@ -1,0 +1,99 @@
+@import url("/games/botc/theme/palette.css");
+
+@font-face {
+	font-family: "GoudyStM";
+	src: url("/games/botc/assets/fonts/GoudyStM.woff2") format("woff2"), url("/games/botc/assets/fonts/GoudyStM.woff") format("woff");
+	font-display: swap;
+}
+
+.botc-page {
+	--botc-ink: #2a1f1a;
+	--botc-paper: #f6efe2;
+	--botc-card: #fffaf0;
+	--botc-line: #d9ccb4;
+	--botc-good: var(--color-secondary, #558dfe);
+	--botc-evil: var(--color-primary, #aa0000);
+	--botc-other: #7a4fb0;
+	--botc-gold: #b08a2e;
+	max-width: 1100px;
+	margin: 0 auto;
+	padding: 16px;
+	color: var(--botc-ink);
+	background: var(--botc-paper);
+	font-family: Georgia, "Times New Roman", serif;
+	box-sizing: border-box;
+}
+.botc-page *, .botc-page *::before, .botc-page *::after { box-sizing: inherit; }
+
+.botc-hero { text-align: center; padding: 8px 0 20px; }
+.botc-logo { max-width: 100%; height: auto; }
+.botc-lede { max-width: 620px; margin: 8px auto 16px; line-height: 1.5; }
+.botc-play { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.botc-btn {
+	display: inline-block; padding: 10px 18px; border-radius: 6px; text-decoration: none;
+	border: 1px solid var(--botc-evil); color: var(--botc-evil); background: transparent; font-weight: 600;
+}
+.botc-btn-main { background: var(--botc-evil); color: #fff; }
+.botc-btn:hover, .botc-btn:focus-visible { filter: brightness(1.1); text-decoration: underline; }
+
+.botc-almanac h2 { font-family: "GoudyStM", Georgia, serif; font-size: 1.8rem; margin: 8px 0 12px; }
+.botc-filters { display: grid; gap: 10px; margin-bottom: 14px; }
+.botc-filters input[type="search"] {
+	width: 100%; max-width: 420px; padding: 9px 12px; font: inherit; border: 1px solid var(--botc-line);
+	border-radius: 6px; background: var(--botc-card); color: inherit;
+}
+.botc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.botc-chips button {
+	font: inherit; font-size: 0.9rem; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+	border: 1px solid var(--botc-line); background: var(--botc-card); color: inherit;
+}
+.botc-chips button[aria-pressed="true"] { background: var(--botc-ink); color: var(--botc-paper); border-color: var(--botc-ink); }
+.botc-chips button:disabled { opacity: 0.55; cursor: default; }
+.botc-count { margin: 0; font-size: 0.9rem; opacity: 0.75; }
+
+.botc-grid {
+	list-style: none; margin: 0; padding: 0;
+	display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;
+}
+.botc-card button, .botc-skeleton {
+	width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px;
+	padding: 10px 6px; border-radius: 8px; border: 1px solid var(--botc-line);
+	background: var(--botc-card); color: inherit; font: inherit; cursor: pointer; text-align: center;
+	border-top: 4px solid var(--botc-gold);
+}
+.botc-team-townsfolk button, .botc-team-outsider button { border-top-color: var(--botc-good); }
+.botc-team-minion button, .botc-team-demon button { border-top-color: var(--botc-evil); }
+.botc-team-traveller button { border-top-color: var(--botc-other); }
+.botc-card button:hover, .botc-card button:focus-visible { box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15); outline: none; }
+.botc-card img, .botc-icon { width: 72px; height: 72px; object-fit: contain; }
+.botc-name { font-weight: 600; line-height: 1.2; }
+.botc-team { font-size: 0.78rem; opacity: 0.7; }
+.botc-skeleton { cursor: default; min-height: 118px; }
+.botc-skeleton .botc-icon { display: block; border-radius: 50%; background: var(--botc-line); opacity: 0.5; }
+.botc-skeleton .botc-name { display: block; width: 70%; border-radius: 4px; background: var(--botc-line); opacity: 0.5; }
+
+.botc-dialog {
+	width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 48px); border: none; border-radius: 10px;
+	padding: 20px; background: var(--botc-card); color: var(--botc-ink); font-family: Georgia, serif;
+}
+.botc-dialog::backdrop { background: rgba(20, 10, 5, 0.55); }
+.botc-close {
+	position: absolute; top: 8px; right: 10px; border: none; background: none; font-size: 1.8rem;
+	line-height: 1; cursor: pointer; color: inherit;
+}
+.botc-d-head { display: flex; gap: 14px; align-items: center; }
+.botc-d-head h3 { margin: 0; font-family: "GoudyStM", Georgia, serif; font-size: 1.6rem; }
+.botc-d-head p { margin: 2px 0 0; opacity: 0.75; }
+.botc-d-ability { font-size: 1.05rem; line-height: 1.5; }
+.botc-d-flavor { font-style: italic; opacity: 0.75; }
+.botc-d-facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; margin: 0; font-size: 0.92rem; }
+.botc-d-facts dt { font-weight: 600; }
+.botc-d-facts dd { margin: 0; }
+
+@media (max-width: 480px) {
+	.botc-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+	.botc-card img, .botc-icon { width: 56px; height: 56px; }
+	.botc-d-facts { grid-template-columns: 1fr; }
+	.botc-d-facts dd { margin-bottom: 6px; }
+}
+.botc-rem { color: var(--botc-evil); font-size: 0.85em; }

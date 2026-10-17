@@ -1,0 +1,71 @@
+---
+title: "GMc14 - Blood on the Clocktower"
+tags: games
+favicon: "/games/botc/favicon.svg"
+---
+{#
+  The gmc14 page for this repo, which is a fork of ThePandemoniumInstitute/botc-release (the
+  official app's download page plus its toolmaker resources). Everything else in the repo is
+  upstream's; this page, almanac.js/.css, bggImg.webp, favicon.svg and theme/ are ours.
+  Play happens on botc.app; this page links there and lists every released character from
+  resources/data (roles, jinxes, night order) with resources/characters icons.
+#}
+{% extends "base.njk" %}
+{% block css %}
+	<link rel="stylesheet" href="/games/botc/almanac.css?v=20261017b">
+	<script type="module" src="/games/botc/almanac.js?v=20261017b"></script>
+{% endblock %}
+{% block content %}
+<div class="botc-page">
+	<section class="botc-hero">
+		<img class="botc-logo" src="/games/botc/assets/logo.webp" alt="Blood on the Clocktower" width="320" height="160">
+		<p class="botc-lede">A social deduction game for 5–20 players and a Storyteller. The good town hunts the Demon; the Demon and its Minions lie their way to the end.</p>
+		<div class="botc-play">
+			<a class="botc-btn botc-btn-main" href="https://botc.app/" target="_blank" rel="noopener">Play online at botc.app</a>
+			<a class="botc-btn" href="https://github.com/ThePandemoniumInstitute/botc-release/releases/latest" target="_blank" rel="noopener">Desktop app (Windows, Mac)</a>
+		</div>
+	</section>
+
+	<section class="botc-almanac" aria-labelledby="botc-almanac-title">
+		<h2 id="botc-almanac-title">Characters</h2>
+		<div class="botc-filters">
+			<input id="botc-search" type="search" placeholder="Search names and abilities" aria-label="Search characters" disabled>
+			<div class="botc-chips" id="botc-editions" role="group" aria-label="Edition">
+				<button type="button" data-edition="" aria-pressed="true" disabled>All</button>
+				<button type="button" data-edition="tb" aria-pressed="false" disabled>Trouble Brewing</button>
+				<button type="button" data-edition="bmr" aria-pressed="false" disabled>Bad Moon Rising</button>
+				<button type="button" data-edition="snv" aria-pressed="false" disabled>Sects &amp; Violets</button>
+				<button type="button" data-edition="carousel" aria-pressed="false" disabled>Experimental</button>
+				<button type="button" data-edition="fabled" aria-pressed="false" disabled>Fabled</button>
+				<button type="button" data-edition="loric" aria-pressed="false" disabled>Loric</button>
+			</div>
+			<div class="botc-chips" id="botc-teams" role="group" aria-label="Team">
+				<button type="button" data-team="" aria-pressed="true" disabled>All</button>
+				<button type="button" data-team="townsfolk" aria-pressed="false" disabled>Townsfolk</button>
+				<button type="button" data-team="outsider" aria-pressed="false" disabled>Outsiders</button>
+				<button type="button" data-team="minion" aria-pressed="false" disabled>Minions</button>
+				<button type="button" data-team="demon" aria-pressed="false" disabled>Demons</button>
+				<button type="button" data-team="traveller" aria-pressed="false" disabled>Travellers</button>
+			</div>
+			<p class="botc-count" id="botc-count">Loading characters…</p>
+		</div>
+		<ul class="botc-grid" id="botc-grid" aria-live="polite">
+			{% for i in range(0, 24) %}<li class="botc-card botc-skeleton" aria-hidden="true"><span class="botc-icon"></span><span class="botc-name">&nbsp;</span></li>{% endfor %}
+		</ul>
+	</section>
+
+	<dialog class="botc-dialog" id="botc-dialog" aria-labelledby="botc-d-name">
+		<button type="button" class="botc-close" id="botc-close" aria-label="Close">×</button>
+		<div class="botc-d-head">
+			<img id="botc-d-icon" alt="" width="96" height="96">
+			<div>
+				<h3 id="botc-d-name"></h3>
+				<p id="botc-d-meta"></p>
+			</div>
+		</div>
+		<p class="botc-d-ability" id="botc-d-ability"></p>
+		<p class="botc-d-flavor" id="botc-d-flavor"></p>
+		<dl class="botc-d-facts" id="botc-d-facts"></dl>
+	</dialog>
+</div>
+{% endblock %}
