@@ -7,7 +7,7 @@ favicon: "/games/botc/favicon.svg"
   The gmc14 page for this repo, which is a fork of ThePandemoniumInstitute/botc-release (the
   official app's download page plus its toolmaker resources). Everything else in the repo is
   upstream's; this page, almanac.js/.css, bggImg.webp, favicon.svg and theme/ are ours.
-  Play happens on botc.app; this page links there and lists every released character from
+  Play happens on botc.app (or nearby, with no internet: nearby.njk, GMC-1658); this page links there and lists every released character from
   resources/data (roles, jinxes, night order) with resources/characters icons.
 #}
 {% extends "base.njk" %}
@@ -21,8 +21,9 @@ favicon: "/games/botc/favicon.svg"
 		<img class="botc-logo" src="/games/botc/assets/logo.webp" alt="Blood on the Clocktower" width="320" height="160">
 		<p class="botc-lede">A social deduction game for 5–20 players and a Storyteller. The good town hunts the Demon; the Demon and its Minions lie their way to the end.</p>
 		<div class="botc-play">
-			<a class="botc-btn botc-btn-main" href="https://botc.app/" target="_blank" rel="noopener">Play online at botc.app</a>
-			<a class="botc-btn" href="https://github.com/ThePandemoniumInstitute/botc-release/releases/latest" target="_blank" rel="noopener">Desktop app (Windows, Mac)</a>
+			<a class="botc-btn botc-btn-main" href="https://botc.app/" target="_blank" rel="noopener" data-online-only data-offline-title="Needs a connection">Play online at botc.app</a>
+			<a class="botc-btn" href="/games/botc/nearby/">Play nearby, no internet (Storyteller mode)</a>
+			<a class="botc-btn" href="https://github.com/ThePandemoniumInstitute/botc-release/releases/latest" target="_blank" rel="noopener" data-online-only data-offline-title="Needs a connection">Desktop app (Windows, Mac)</a>
 		</div>
 	</section>
 

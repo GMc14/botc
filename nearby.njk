@@ -1,0 +1,560 @@
+---
+title: "GMc14 - Blood on the Clocktower nearby"
+favicon: "/games/botc/favicon.svg"
+---
+{#
+  Blood on the Clocktower with no internet (GMC-1658): phones in one room on one Wi-Fi or hotspot.
+  One phone is the Storyteller (a non-player); it holds the grimoire on a LanRoom hub
+  (/games/common/lan/room.js), tells each phone its character privately, sends the evil team its
+  first-night info, asks the right phone for night choices in night order and collects them, sends
+  each player whatever they learn, and runs nominations and votes by day. Pairing: Nearby
+  Connections inside the GMc14 Android apps, else QR codes over WebRTC (Android Chrome), with paste
+  for anything else. Logic: lan/rules.js (pure) and lan/storyteller.js; why: docs/adr/0001.
+  Characters and night order: resources/data (upstream's).
+#}
+{% extends "base.njk" %}
+{% block content %}
+<style>
+	#nb { --bg: #14100e; --panel: #221a16; --ink: #f3e9d6; --muted: #b9a98c; --line: #3d3029; --red: #b3261e; --blue: #4f7fe0; --gold: #c9a24a;
+		max-width: 620px; margin: 0 auto; padding: 16px 16px 40px; font: 16px/1.45 Georgia, "Times New Roman", serif; color: var(--ink); background: var(--bg); box-sizing: border-box; }
+	#nb *, #nb *::before, #nb *::after { box-sizing: border-box; }
+	#nb h1 { font-size: 2em; margin: 6px 0 2px; text-align: center; }
+	#nb h2 { font-size: 1.12em; margin: 0 0 8px; }
+	#nb h3 { font-size: 1em; margin: 10px 0 4px; }
+	#nb .sub { text-align: center; color: var(--muted); margin: 0 0 14px; }
+	#nb section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+	#nb button { font: inherit; font-size: .95em; padding: 6px 12px; border: 1px solid #f3e9d655; border-radius: 8px; background: var(--red); color: #fff; cursor: pointer; margin: 2px 0; }
+	#nb button.quiet { background: transparent; color: var(--ink); }
+	#nb button.small { padding: 2px 8px; font-size: .82em; }
+	#nb button.on { background: var(--blue); color: #fff; }
+	#nb button:disabled { opacity: .45; cursor: default; }
+	#nb input, #nb select, #nb textarea { font: inherit; font-size: .95em; padding: 5px 7px; border-radius: 8px; border: 1px solid var(--line); background: #0f0c0a; color: var(--ink); max-width: 100%; }
+	#nb textarea { width: 100%; font: 12px/1.3 ui-monospace, monospace; }
+	#nb .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
+	#nb .muted, #nb .lan-wait, #nb .lan-note { color: var(--muted); font-size: .9em; }
+	#nb .warn, #nb .lan-msg { color: #f2c14e; }
+	#nb .lan-qr { background: #fff; padding: 10px; border-radius: 8px; width: max-content; max-width: 100%; margin: 8px 0; }
+	#nb .lan-qr img, #nb .lan-qr canvas { display: block; max-width: 100%; height: auto; }
+	#nb .lan-video { width: 100%; border-radius: 8px; margin-top: 8px; background: #000; }
+	#nb .lan-players { display: none; } /* the seat list above shows who is connected */
+	#nb .lan-paste, #nb .lan-text { margin-top: 8px; font-size: .9em; }
+	#nb .lan-paste input { width: 100%; margin: 6px 0; }
+	#nb table { width: 100%; border-collapse: collapse; font-size: .92em; }
+	#nb td, #nb th { padding: 4px 5px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+	#nb .dead { text-decoration: line-through; color: var(--muted); }
+	#nb .t-townsfolk, #nb .t-outsider { color: #8fb0ff; }
+	#nb .t-minion, #nb .t-demon { color: #ff8a80; }
+	#nb .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+	#nb .chips button { background: transparent; color: var(--ink); }
+	#nb .chips button.on { background: var(--blue); color: #fff; }
+	#nb .chip { display: inline-block; padding: 0 7px; border-radius: 10px; border: 1px solid var(--gold); color: var(--gold); font-size: .8em; margin: 1px 2px; cursor: pointer; }
+	#nb .card { display: flex; gap: 12px; align-items: center; }
+	#nb .card img { flex: none; width: 88px; height: 88px; }
+	#nb .card .name { font-size: 1.7em; line-height: 1.1; }
+	#nb .ability { font-style: italic; }
+	#nb .seat { border-bottom: 1px solid var(--line); padding: 6px 0; }
+	#nb .seat:last-child { border-bottom: 0; }
+	#nb .step { border-left: 3px solid var(--line); padding: 2px 0 2px 8px; margin: 8px 0; }
+	#nb .step.has-ask { border-left-color: var(--blue); }
+	#nb .step .txt { font-size: .88em; color: var(--muted); }
+	#nb .log { list-style: none; padding: 0; margin: 0; max-height: 200px; overflow: auto; font-size: .88em; color: var(--muted); }
+	#nb .sheet li { margin: 4px 0; font-size: .9em; }
+	#nb .sheet { list-style: none; padding: 0; }
+	#nb img.icon { width: 28px; height: 28px; vertical-align: middle; }
+	#nb [hidden] { display: none !important; }
+</style>
+<div id="nb">
+	<h1>Clocktower nearby</h1>
+	<p class="sub">No internet needed: every phone on one Wi-Fi or one phone's hotspot. One phone is the Storyteller and holds the grimoire.</p>
+
+	<section id="start">
+		<div class="row"><label for="nb-name">Your name</label><input id="nb-name" maxlength="24" autocomplete="nickname"></div>
+		<div class="row"><button id="btn-st" disabled>Be the Storyteller</button><button id="btn-join" class="quiet" disabled>Join as a player</button></div>
+		<p class="muted" id="nb-mode">Checking this phone…</p>
+		<p class="muted"><a href="/games/botc/" style="color:inherit">Characters and rules</a></p>
+	</section>
+
+	<section id="join" hidden>
+		<h2>Join nearby</h2>
+		<div id="join-area"></div>
+		<div class="row"><button id="btn-join-cancel" class="quiet">Cancel</button></div>
+	</section>
+
+	<div id="st" hidden>
+		<p class="warn" id="st-msg" hidden></p>
+		<section>
+			<h2>Players <span class="muted" id="st-count"></span></h2>
+			<div id="st-players"></div>
+			<div id="st-pair"></div>
+		</section>
+		<section id="st-setup">
+			<h2>Script</h2>
+			<div class="row"><select id="st-script">
+				<option value="tb">Trouble Brewing</option><option value="bmr">Bad Moon Rising</option><option value="snv">Sects &amp; Violets</option><option value="custom">Paste a script…</option>
+			</select></div>
+			<div id="st-custom" hidden>
+				<textarea id="st-custom-json" rows="4" placeholder='[{"id":"_meta","name":"My script"},"washerwoman","imp",…]'></textarea>
+				<div class="row"><button id="st-custom-use" class="small">Use this script</button></div>
+			</div>
+			<p class="muted" id="st-script-msg"></p>
+			<h2>Characters in the bag</h2>
+			<p id="st-bag-count"></p>
+			<div id="st-bag-warn"></div>
+			<div id="st-chars"></div>
+			<div class="row"><button id="st-suggest" class="quiet small">Suggest a bag</button><button id="st-clear" class="quiet small">Clear</button></div>
+			<div class="row"><button id="st-deal">Deal</button><button id="st-start" disabled>Start: night 1</button></div>
+			<p class="muted">Dealing tells each phone its character. You can change characters, what the Drunk thinks and the bluffs in the grimoire before you start.</p>
+		</section>
+		<section id="st-grim" hidden>
+			<h2>Grimoire</h2>
+			<div id="st-grim-seats"></div>
+			<h3>Demon bluffs</h3>
+			<div class="row" id="st-bluffs"></div>
+		</section>
+		<section id="st-phase" hidden></section>
+		<section id="st-tell" hidden>
+			<h2>Tell or ask one player</h2>
+			<div class="row"><select id="st-to"></select></div>
+			<div class="row"><input id="st-note" maxlength="300" placeholder="What they learn (only they will see it)" style="flex:1 1 220px"><button id="st-note-send">Send</button></div>
+			<div class="row"><select id="st-note-char"><option value="">Add a character's name…</option></select></div>
+			<h3>Ask them</h3>
+			<div class="row"><input id="st-ask-title" maxlength="80" placeholder="Question" style="flex:1 1 200px"></div>
+			<div class="row">
+				<label>Players <select id="st-ask-players"><option>0</option><option selected>1</option><option>2</option><option>3</option></select></label>
+				<label><input type="checkbox" id="st-ask-char"> a character</label>
+				<label><input type="checkbox" id="st-ask-yesno"> yes / no</label>
+				<button id="st-ask-send" class="small">Ask</button>
+			</div>
+		</section>
+		<section>
+			<h2>Log</h2>
+			<ul class="log" id="st-log"></ul>
+		</section>
+	</div>
+
+	<div id="play" hidden>
+		<section id="pl-you"></section>
+		<section id="pl-evil" hidden></section>
+		<section id="pl-prompts" hidden></section>
+		<section id="pl-notes" hidden></section>
+		<section>
+			<h2 id="pl-phase"></h2>
+			<div id="pl-town"></div>
+		</section>
+		<section id="pl-script" hidden>
+			<details><summary id="pl-script-name">Script</summary><ul class="sheet" id="pl-sheet"></ul></details>
+		</section>
+		<section>
+			<h2>Log</h2>
+			<ul class="log" id="pl-log"></ul>
+		</section>
+	</div>
+</div>
+
+<script type="module">
+	import { nearbyMode, hostNearby, discoverNearby, joinNearby } from '/games/common/lan/nearby.js?v=20261020';
+	import { hostLan, joinLan } from '/games/common/lan/pair.js?v=20261020';
+	import * as R from '/games/botc/lan/rules.js?v=20261020';
+	import { NearbyStoryteller, act } from '/games/botc/lan/storyteller.js?v=20261020';
+
+	const V = '20261020';
+	const DATA = '/games/botc/resources/data';
+	const $ = id => document.getElementById(id);
+	const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+	// Upstream's reminder text marks tokens as *TOKEN* and "place a reminder" as :reminder:
+	const fmt = s => esc(s).replace(/\*([^*]+)\*/g, '<b>$1</b>').replace(/\s*:reminder:/g, ' ◉');
+	const store = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } } };
+	const TEAM = { townsfolk: 'Townsfolk', outsider: 'Outsider', minion: 'Minion', demon: 'Demon' };
+
+	let lib = null;
+	const cname = id => lib?.chars[id]?.name ?? id;
+	const cteam = id => lib?.chars[id]?.team ?? '';
+	// Upstream ships plain, _g and _e icons, not every one for every character: try in turn
+	function icon(id, cls = 'icon') {
+		const c = lib?.chars[id];
+		if (!c) return '';
+		const order = R.EVIL.has(c.team) ? ['_e', '', '_g'] : ['_g', '', '_e'];
+		const urls = order.map(s => `/games/botc/resources/characters/${c.edition}/${c.id}${s}.webp`);
+		return `<img class="${cls}" alt="" src="${urls[0]}" data-next="${urls.slice(1).join(' ')}" onerror="const n=(this.dataset.next||'').split(' ').filter(Boolean);if(n.length){this.dataset.next=n.slice(1).join(' ');this.src=n[0];}">`;
+	}
+
+	// One id per tab (or ?id=, so frames of one page can be several phones), kept across reloads
+	let clientId = new URLSearchParams(location.search).get('id');
+	if (!clientId) { try { clientId = sessionStorage.getItem('botc.nearby.clientId'); } catch { /* no storage */ } }
+	if (!clientId) { clientId = Math.random().toString(36).slice(2, 10); try { sessionStorage.setItem('botc.nearby.clientId', clientId); } catch { /* no storage */ } }
+
+	// 'app': Nearby Connections in the GMc14 apps; 'qr': scan codes (Android Chrome); 'paste': a
+	// browser with WebRTC but no QR reader pairs by pasting codes (two frames on a computer)
+	const mode = nearbyMode() || (typeof RTCPeerConnection !== 'undefined' ? 'paste' : null);
+	$('nb-name').value = store.get('gmc14.playerName') || '';
+	const myName = () => { const n = $('nb-name').value.trim(); if (n) store.set('gmc14.playerName', n); return n; };
+
+	try {
+		const get = async f => { const r = await fetch(`${DATA}/${f}?v=${V}`); if (!r.ok) throw new Error(`${f}: ${r.status}`); return r.json(); };
+		const [roles, night] = await Promise.all([get('roles.json'), get('nightsheet.json')]);
+		lib = R.makeLib(roles, night);
+		$('nb-mode').textContent = {
+			app: 'Phones find each other through the GMc14 app.',
+			qr: 'Phones pair by scanning each other\'s QR codes.',
+			paste: 'This browser cannot scan QR codes: pair by copying and pasting the codes instead.',
+		}[mode] || 'This browser cannot play nearby. Use Chrome on Android.';
+		$('btn-st').disabled = $('btn-join').disabled = !mode;
+	} catch (err) {
+		$('nb-mode').textContent = `The characters could not be loaded (${err.message}).`;
+	}
+
+	// ---------------- Storyteller ----------------
+	let st = null, bag = [], script = null;
+	const say = msg => { $('st-msg').textContent = msg || ''; $('st-msg').hidden = !msg; };
+	const tryDo = async fn => { say(''); try { await fn(); } catch (err) { say(err.message); } };
+
+	$('btn-st').onclick = () => {
+		const name = myName() || 'Storyteller';
+		const room = R.newRoom(name);
+		let hub;
+		try {
+			hub = mode === 'app' ? hostNearby(room, name)
+				: hostLan($('st-pair'), room, { addLabel: 'Add a player', joinLabel: 'Join as a player' });
+		} catch (err) { $('nb-mode').textContent = `Could not start: ${err.message}`; return; }
+		$('start').hidden = true;
+		$('st').hidden = false;
+		if (mode === 'app') $('st-pair').innerHTML = '<p class="muted">Players tap Join as a player on their phones and pick your game.</p>';
+		st = new NearbyStoryteller(hub, lib);
+		hub.onPeers(drawSt);
+		st.onChange(drawSt);
+		useScript(R.editionScript(lib, 'tb'));
+		window.addEventListener('beforeunload', e => { if (st.room?.status === 'playing') { e.preventDefault(); e.returnValue = ''; } });
+	};
+
+	async function useScript(s) {
+		script = s;
+		bag = bag.filter(id => s.ids.includes(id));
+		$('st-script-msg').textContent = `${s.name}: ${s.ids.length} characters.${s.skipped?.length ? ` Left out (homebrew, Travellers, Fabled): ${s.skipped.join(', ')}.` : ''}`;
+		const opts = s.ids.map(id => `<option value="${esc(id)}">${esc(cname(id))}</option>`).join('');
+		$('st-note-char').innerHTML = `<option value="">Add a character's name…</option>${opts}`;
+		await st.setScript(s);
+	}
+
+	$('st-script').onchange = () => {
+		const v = $('st-script').value;
+		$('st-custom').hidden = v !== 'custom';
+		if (v !== 'custom') useScript(R.editionScript(lib, v));
+	};
+	$('st-custom-use').onclick = () => tryDo(() => useScript(R.parseScript(lib, $('st-custom-json').value)));
+	$('st-suggest').onclick = () => { bag = R.suggestCharacters(lib, script, st.room.players.length); drawSt(); };
+	$('st-clear').onclick = () => { bag = []; drawSt(); };
+	$('st-deal').onclick = () => tryDo(() => st.deal(bag));
+	$('st-start').onclick = () => tryDo(() => st.start());
+	$('st-note-char').onchange = () => { const id = $('st-note-char').value; if (id) { const t = $('st-note'); t.value = `${t.value}${t.value && !/\s$/.test(t.value) ? ' ' : ''}${cname(id)}`; } $('st-note-char').value = ''; };
+	$('st-note-send').onclick = () => { const to = $('st-to').value, t = $('st-note').value; if (to && t.trim()) { st.note(to, t); $('st-note').value = ''; } };
+	$('st-ask-send').onclick = () => {
+		const to = $('st-to').value;
+		if (!to) return;
+		st.ask(to, { title: $('st-ask-title').value.trim() || 'The Storyteller asks', players: Number($('st-ask-players').value), character: $('st-ask-char').checked, yesno: $('st-ask-yesno').checked });
+		$('st-ask-title').value = '';
+	};
+
+	// Clicks and changes inside drawn parts: data-do="<what>" data-id="<clientId>"
+	$('st').addEventListener('click', e => {
+		const b = e.target.closest('[data-do]');
+		if (!b || b.tagName === 'SELECT') return;
+		const id = b.dataset.id;
+		tryDo(async () => {
+			switch (b.dataset.do) {
+				case 'bag': { const c = b.dataset.c; bag = bag.includes(c) ? bag.filter(x => x !== c) : [...bag, c]; drawSt(); break; }
+				case 'remove': await st.remove(id); break;
+				case 'up': await st.move(id, -1); break;
+				case 'down': await st.move(id, 1); break;
+				case 'kill': await st.setAlive(id, false); break;
+				case 'revive': await st.setAlive(id, true); break;
+				case 'ghost': await st.setGhost(id, b.dataset.v === '1'); break;
+				case 'unrem': st.removeReminder(Number(b.dataset.i)); break;
+				case 'ask': { const s = st.steps().find(x => x.step === b.dataset.step); if (s?.ask) st.ask(id, { title: s.name, text: abilityOf(s.step), ...s.ask }); break; }
+				case 'ask-all': for (const s of st.steps()) for (const pid of wakeable(s)) st.ask(pid, { title: s.name, text: abilityOf(s.step), ...s.ask }); break;
+				case 'unask': st.cancelAsk(b.dataset.ask); break;
+				case 'evil': st.evilInfo(b.dataset.which); break;
+				case 'day': await st.day([...document.querySelectorAll('#st-phase input[data-dead]:checked')].map(x => x.dataset.dead)); break;
+				case 'night': await st.night(); break;
+				case 'nominate': await st.nominate(b.dataset.a ?? $('st-nom-a').value, b.dataset.b ?? $('st-nom-b').value); break;
+				case 'close-vote': await st.closeVote(); break;
+				case 'execute': await st.execute(id ?? $('st-exec').value); break;
+				case 'end': await st.end($('st-winner').value); break;
+			}
+		});
+	});
+	$('st').addEventListener('change', e => {
+		const s = e.target.closest('select[data-do]');
+		if (!s) return;
+		const id = s.dataset.id, v = s.value;
+		if (s.dataset.do === 'character' && v) st.setCharacter(id, v);
+		if (s.dataset.do === 'thinks' && v) st.setThinks(id, v);
+		if (s.dataset.do === 'rem' && v) { const [c, ...t] = v.split('|'); st.addReminder(id, c, t.join('|')); }
+		if (s.dataset.do === 'bluff') st.setBluffs([...document.querySelectorAll('#st-bluffs select')].map(x => x.value));
+	});
+
+	// A phone is shown its character's ability with the question, never the Storyteller's night-sheet text
+	const abilityOf = id => lib.chars[id]?.ability || '';
+	// A step's players the "ask everyone" button wakes: alive, not already asked, not a conditional step ("If the Ravenkeeper died tonight")
+	function wakeable(s) {
+		if (!s.ask || /^\s*If\b/.test(s.text)) return [];
+		const asked = new Set(st.collected().asks.filter(a => a.title === s.name).map(a => a.clientId));
+		return s.players.filter(id => st.room.players.find(p => p.clientId === id)?.alive && !asked.has(id));
+	}
+
+	const charOptions = (ids, sel, blank) => `${blank ? `<option value="">${esc(blank)}</option>` : ''}${ids.map(id => `<option value="${esc(id)}"${id === sel ? ' selected' : ''}>${esc(cname(id))}</option>`).join('')}`;
+
+	function drawSt() {
+		if (!st || !lib) return;
+		const room = st.room, secret = st.secret;
+		const conn = Object.fromEntries(st.hub.peers.map(p => [p.clientId, p.connected]));
+		const lobby = room.status === 'lobby', playing = room.status === 'playing';
+		const n = room.players.length;
+		const dealt = n > 0 && room.players.every(p => secret.grim[p.clientId]);
+		$('st-count').textContent = n ? `(${n})` : '';
+		const status = id => (conn[id] === false ? ' <span class="warn">· disconnected</span>' : conn[id] ? '' : mode === 'app' ? '' : ' <span class="muted">· not connected</span>');
+		$('st-players').innerHTML = !n ? '<p class="muted">Nobody yet.</p>' : lobby
+			? `<table>${room.players.map((p, i) => `<tr><td>${i + 1}. ${esc(p.name)}${status(p.clientId)}</td><td style="text-align:right">
+				<button class="small quiet" data-do="up" data-id="${esc(p.clientId)}" ${i ? '' : 'disabled'} aria-label="Move up">↑</button>
+				<button class="small quiet" data-do="down" data-id="${esc(p.clientId)}" ${i < n - 1 ? '' : 'disabled'} aria-label="Move down">↓</button>
+				<button class="small quiet" data-do="remove" data-id="${esc(p.clientId)}">Remove</button></td></tr>`).join('')}</table><p class="muted">Seat order is the circle: neighbours matter.</p>`
+			: `<p class="muted">${room.players.map((p, i) => `<span class="${p.alive ? '' : 'dead'}">${i + 1}. ${esc(p.name)}</span>${status(p.clientId)}`).join(' · ')}</p>`;
+
+		// Setup: script and bag
+		$('st-setup').hidden = !lobby;
+		if (lobby && script) {
+			const chk = R.checkBag(lib, bag, n);
+			$('st-bag-count').innerHTML = R.DEALT.map(t => `<span class="t-${t}">${TEAM[t]} ${chk.counts[t]}/${chk.expected[t]}</span>`).join(' · ');
+			$('st-bag-warn').innerHTML = n ? chk.warnings.map(w => `<p class="warn">${esc(w)}</p>`).join('') : '<p class="muted">Add players first.</p>';
+			$('st-chars').innerHTML = R.DEALT.map(t => `<h3 class="t-${t}">${TEAM[t]}</h3><div class="chips">${script.ids.filter(id => cteam(id) === t)
+				.map(id => `<button class="${bag.includes(id) ? 'on' : ''}" data-do="bag" data-c="${esc(id)}" title="${esc(lib.chars[id].ability)}">${esc(cname(id))}</button>`).join('')}</div>`).join('');
+			$('st-deal').disabled = !n || bag.length !== n;
+			$('st-start').disabled = !dealt;
+		}
+
+		// Grimoire
+		$('st-grim').hidden = !dealt || room.status === 'over';
+		if (dealt) {
+			const ids = room.script?.ids || [];
+			const others = Object.keys(lib.chars).filter(id => R.DEALT.includes(cteam(id)) && !ids.includes(id)).sort((a, b) => cname(a).localeCompare(cname(b)));
+			const inPlay = [...new Set(room.players.flatMap(p => [secret.grim[p.clientId].character, secret.grim[p.clientId].thinks]))];
+			const remOpts = R.reminderOptions(lib, inPlay).map(r => `<option value="${esc(`${r.character}|${r.token}`)}">${esc(cname(r.character))}: ${esc(r.token)}</option>`).join('');
+			$('st-grim-seats').innerHTML = room.players.map((p, i) => {
+				const g = secret.grim[p.clientId];
+				const rems = secret.reminders.map((r, k) => [r, k]).filter(([r]) => r.on === p.clientId)
+					.map(([r, k]) => `<span class="chip" data-do="unrem" data-i="${k}" title="Remove">${esc(r.token)} ×</span>`).join('');
+				const life = !playing ? '' : p.alive ? `<button class="small quiet" data-do="kill" data-id="${esc(p.clientId)}">Kill</button>`
+					: `<button class="small quiet" data-do="revive" data-id="${esc(p.clientId)}">Revive</button> <button class="small quiet" data-do="ghost" data-id="${esc(p.clientId)}" data-v="${p.ghost ? 0 : 1}">${p.ghost ? 'Has ghost vote' : 'Ghost vote used'}</button>`;
+				return `<div class="seat"><div class="row">${icon(g.character)}<b class="${p.alive ? '' : 'dead'}">${i + 1}. ${esc(p.name)}</b>
+					<select data-do="character" data-id="${esc(p.clientId)}" aria-label="Character" class="t-${esc(cteam(g.character))}">${charOptions(ids.includes(g.character) ? ids : [g.character, ...ids], g.character)}<optgroup label="Not on the script">${charOptions(others, g.character)}</optgroup></select>
+					${life}</div>
+					<div class="row"><span class="muted">Thinks</span><select data-do="thinks" data-id="${esc(p.clientId)}" aria-label="Thinks they are">${charOptions(ids.includes(g.thinks) ? ids : [g.thinks, ...ids], g.thinks)}</select>
+					${g.thinks !== g.character ? '<span class="warn">told a different character</span>' : ''}</div>
+					<div class="row">${rems}<select data-do="rem" data-id="${esc(p.clientId)}" aria-label="Add a reminder"><option value="">+ reminder</option>${remOpts}</select></div></div>`;
+			}).join('');
+			const good = ids.filter(id => R.GOOD.has(cteam(id)));
+			$('st-bluffs').innerHTML = [0, 1, 2].map(k => `<select data-do="bluff" aria-label="Bluff ${k + 1}">${charOptions(good, secret.bluffs[k], '—')}</select>`).join('');
+		}
+
+		$('st-tell').hidden = !dealt;
+		const keep = $('st-to').value;
+		$('st-to').innerHTML = room.players.map(p => `<option value="${esc(p.clientId)}">${esc(p.name)}</option>`).join('');
+		if (keep && room.players.some(p => p.clientId === keep)) $('st-to').value = keep;
+
+		$('st-phase').hidden = lobby;
+		if (!lobby) $('st-phase').innerHTML = phaseHtml(room, secret);
+		$('st-log').innerHTML = [...room.log].reverse().map(l => `<li>${esc(l)}</li>`).join('');
+	}
+
+	function phaseHtml(room, secret) {
+		const names = id => room.players.find(p => p.clientId === id)?.name ?? '?';
+		if (room.status === 'over') return `<h2>Game over${room.winner ? `: ${esc(room.winner)} wins` : ''}</h2><p class="muted">Every phone now shows every character.</p>`;
+		const c = st.collected();
+		const refused = st.refused.length ? `<p class="warn">Refused: ${st.refused.map(r => `${esc(names(r.clientId))} (${esc(r.why)})`).join('; ')}</p>` : '';
+		const askRow = a => `<li>${esc(a.name)} · ${esc(a.title)}: ${a.label ? `<b>${esc(a.label)}</b>` : '<span class="muted">waiting…</span>'} <button class="small quiet" data-do="unask" data-ask="${esc(a.id)}" aria-label="Cancel">×</button></li>`;
+		const winner = `<h3>End the game</h3><div class="row"><select id="st-winner"><option value="good">Good wins</option><option value="evil">Evil wins</option><option value="">No winner</option></select><button class="small quiet" data-do="end">End and reveal</button></div>`;
+		if (room.phase === 'night') {
+			const steps = st.steps();
+			const html = steps.map(s => {
+				const who = s.players.map(pid => {
+					const g = secret.grim[pid], p = room.players.find(x => x.clientId === pid);
+					const as = g.character !== s.step ? ` (${esc(cname(g.character))})` : g.thinks !== s.step ? ` (thinks ${esc(cname(g.thinks))})` : '';
+					const asked = c.asks.find(a => a.clientId === pid && a.title === s.name);
+					const btn = s.ask ? (asked ? (asked.label ? ` → <b>${esc(asked.label)}</b>` : ' <span class="muted">asked…</span>')
+						: ` <button class="small" data-do="ask" data-id="${esc(pid)}" data-step="${esc(s.step)}">Ask</button>`) : '';
+					return `<div><span class="${p.alive ? '' : 'dead'}">${esc(p.name)}</span>${as}${btn}</div>`;
+				}).join('');
+				const evil = (s.step === 'minioninfo' || s.step === 'demoninfo') && s.players.length
+					? ` <button class="small" data-do="evil" data-which="${s.step === 'minioninfo' ? 'minion' : 'demon'}">${secret.info[s.players[0]]?.[s.step === 'minioninfo' ? 'demons' : 'bluffs'] ? 'Send again' : 'Send'}</button>` : '';
+				return `<div class="step${s.ask ? ' has-ask' : ''}"><b>${esc(s.name)}</b>${evil}<div class="txt">${fmt(s.text)}</div>${who}</div>`;
+			}).join('');
+			const pending = steps.some(s => wakeable(s).length);
+			const other = c.asks.filter(a => !steps.some(s => s.name === a.title && s.players.includes(a.clientId)));
+			const deaths = room.players.filter(p => p.alive).map(p => `<label><input type="checkbox" data-dead="${esc(p.clientId)}"> ${esc(p.name)}</label>`).join(' ');
+			return `<h2>Night ${room.day + 1}</h2>
+				<div class="row"><button class="small" data-do="ask-all" ${pending ? '' : 'disabled'}>Ask everyone who chooses</button></div>
+				<p class="muted">Each phone shows its own question; answers arrive here. What anyone learns is up to you: send it with "Tell one player".</p>
+				${html}${other.length ? `<h3>Other questions</h3><ul>${other.map(askRow).join('')}</ul>` : ''}${refused}
+				<h3>Who died tonight?</h3><div class="row">${deaths}</div>
+				<div class="row"><button data-do="day">Start day ${room.day + 1}</button></div>${winner}`;
+		}
+		const t = room.today, nom = room.nom;
+		const opts = list => list.map(p => `<option value="${esc(p.clientId)}">${esc(p.name)}</option>`).join('');
+		let body = '';
+		if (nom?.open) {
+			body = `<h3>${esc(names(nom.nominator))} nominates ${esc(names(nom.nominee))}</h3><p class="muted">${nom.needed} votes to put them on the block${t.top ? ` (${t.top} to beat today)` : ''}.</p>
+				<p>Yes: ${c.vote.yes.map(esc).join(', ') || '—'}<br>No: ${c.vote.no.map(esc).join(', ') || '—'}<br><span class="muted">Waiting: ${c.vote.waiting.map(esc).join(', ') || 'nobody'}</span></p>
+				<div class="row"><button data-do="close-vote">Close the vote</button></div>`;
+		} else {
+			const reqs = c.requests.map(r => `<div class="row">${esc(r.label)} <button class="small" data-do="nominate" data-a="${esc(r.nominator)}" data-b="${esc(r.nominee)}">Open the vote</button></div>`).join('');
+			const canNom = room.players.filter(p => p.alive && !t.nominators.includes(p.clientId)), canBe = room.players.filter(p => !t.nominees.includes(p.clientId));
+			body = `${reqs}<h3>Nominate</h3><div class="row"><select id="st-nom-a" aria-label="Nominator">${opts(canNom)}</select> nominates <select id="st-nom-b" aria-label="Nominee">${opts(canBe)}</select>
+				<button class="small" data-do="nominate" ${canNom.length && canBe.length ? '' : 'disabled'}>Open the vote</button></div>`;
+		}
+		const last = nom && !nom.open ? `<p class="muted">Last vote: ${nom.votes} for ${esc(names(nom.nominee))}${nom.yes.length ? ` (${nom.yes.map(names).map(esc).join(', ')})` : ''}.</p>` : '';
+		const block = t.executed ? `<p>${esc(names(t.executed))} was executed today.</p>`
+			: `${t.block ? `<p>On the block: <b>${esc(names(t.block))}</b> with ${t.top} votes. <button class="small" data-do="execute" data-id="${esc(t.block)}">Execute</button></p>` : `<p class="muted">Nobody is on the block${t.top ? ' (a tie)' : ''}.</p>`}
+				<div class="row"><select id="st-exec" aria-label="Execute">${opts(room.players)}</select><button class="small quiet" data-do="execute">Execute anyway</button></div>`;
+		const asks = c.asks.length ? `<h3>Questions</h3><ul>${c.asks.map(askRow).join('')}</ul>` : '';
+		return `<h2>Day ${room.day}</h2>${body}${last}${block}${asks}${refused}<div class="row"><button data-do="night">Start night ${room.day + 1}</button></div>${winner}`;
+	}
+
+	// ---------------- Player ----------------
+	let peer = null, joining = null, room = null, mine = null;
+	const sel = {};   // prompt id -> { players: [], character } picked but not yet sent
+
+	$('btn-join').onclick = async () => {
+		const name = myName();
+		if (!name) { $('nb-name').focus(); return; }
+		$('start').hidden = true;
+		$('join').hidden = false;
+		const ctl = joining = new AbortController();
+		try {
+			const p = mode === 'app' ? await pickNearby(ctl.signal)
+				: await joinLan($('join-area'), { clientId, signal: ctl.signal, addLabel: 'Add a player' });
+			if (joining !== ctl) { p.close(); return; }
+			joining = null;
+			await sit(p, name);
+		} catch (err) {
+			if (joining === ctl && err.code !== 'aborted' && mode === 'app') $('join-area').textContent = `Could not join: ${err.message}`;
+		}
+	};
+	$('btn-join-cancel').onclick = () => { joining?.abort(); joining = null; $('join').hidden = true; $('start').hidden = false; };
+
+	/** Inside the apps: list the Clocktower games nearby; resolves with the peer of the one picked. */
+	function pickNearby(signal) {
+		const area = $('join-area');
+		area.textContent = 'Looking for games nearby…';
+		return new Promise((resolve, reject) => {
+			const stop = discoverNearby(R.GAME, found => {
+				area.innerHTML = found.length ? found.map(e => `<button class="quiet" data-nearby="${esc(e.id)}">${esc(e.host)}'s game</button>`).join(' ') : 'Looking for games nearby…';
+				area.querySelectorAll('[data-nearby]').forEach(b => { b.onclick = async () => { stop(); try { resolve(await joinNearby(b.dataset.nearby, clientId)); } catch (err) { reject(err); } }; });
+			});
+			signal.addEventListener('abort', () => { stop(); reject(Object.assign(new Error('cancelled'), { code: 'aborted' })); }, { once: true });
+		});
+	}
+
+	async function sit(p, name) {
+		peer = p;
+		await p.tx(r => R.addPlayer(r, clientId, name));
+		$('join').hidden = true;
+		$('play').hidden = false;
+		p.subscribe(r => { room = r; drawTown(); drawPrivate(mine); });
+		p.subscribePrivate(drawPrivate);
+		p.onHostLeft(() => { $('pl-phase').textContent = 'The Storyteller\'s phone left; the game has ended.'; $('pl-prompts').hidden = true; });
+	}
+
+	function drawPrivate(data) {
+		mine = data;
+		const you = data?.you;
+		$('pl-you').innerHTML = you
+			? `<div class="card">${icon(you.id, '')}<div><div class="muted">You are the</div><div class="name t-${esc(you.team)}">${esc(you.name)}</div>
+				<div class="muted">${esc(TEAM[you.team] || you.team)}</div></div></div><p class="ability">${esc(you.ability)}</p>`
+			: '<p class="muted">Waiting for the Storyteller to deal. Keep this screen to yourself.</p>';
+		const ev = data?.evil;
+		$('pl-evil').hidden = !ev;
+		if (ev) $('pl-evil').innerHTML = `<h2>Your evil team</h2>${ev.demons ? `<p>Demon: <b>${ev.demons.map(esc).join(', ') || '—'}</b></p>` : ''}
+			${ev.minions ? `<p>${ev.demons ? 'Other Minions' : 'Your Minions'}: <b>${ev.minions.map(esc).join(', ') || 'none'}</b></p>` : ''}
+			${ev.bluffs ? `<h3>Not in play: safe to bluff</h3><ul class="sheet">${ev.bluffs.map(b => `<li>${icon(b.id)} <b>${esc(b.name)}</b> <span class="muted">${esc(b.ability)}</span></li>`).join('')}</ul>` : ''}`;
+		drawPrompts(data);
+		const notes = data?.notes || [];
+		$('pl-notes').hidden = !notes.length;
+		$('pl-notes').innerHTML = `<h2>From the Storyteller</h2>${[...notes].reverse().map(n => `<p>${esc(n)}</p>`).join('')}`;
+	}
+
+	function drawPrompts(data) {
+		const prompts = data?.prompts || [];
+		$('pl-prompts').hidden = !prompts.length;
+		$('pl-prompts').innerHTML = prompts.map(p => {
+			const chosen = data.chosen[p.id];
+			const s = sel[p.id] ||= { players: [...(chosen?.players || [])], character: chosen?.character ?? null };
+			const sent = chosen ? `<p class="muted">Sent: ${esc(label(chosen))}. You can change it until the Storyteller moves on.</p>` : '';
+			if (p.kind === 'vote') return `<h2>${esc(p.title)}</h2><p class="muted">${esc(p.text)}</p><div class="chips">
+				<button data-p="${esc(p.id)}" data-yes="1" class="${chosen?.yes === true ? 'on' : ''}">Yes, execute</button><button data-p="${esc(p.id)}" data-yes="0" class="${chosen?.yes === false ? 'on' : ''}">No</button></div>${sent}`;
+			const yes = p.yesno ? `<div class="chips"><button data-p="${esc(p.id)}" data-yes="1" class="${chosen?.yes === true ? 'on' : ''}">Yes</button><button data-p="${esc(p.id)}" data-yes="0" class="${chosen?.yes === false ? 'on' : ''}">No</button></div>` : '';
+			const pl = p.players ? `<p class="muted">Pick ${p.players} player${p.players > 1 ? 's' : ''}:</p><div class="chips">${p.playerChoices.map(c => `<button data-p="${esc(p.id)}" data-pl="${esc(c.value)}" class="${s.players.includes(c.value) ? 'on' : ''}">${esc(c.label)}</button>`).join('')}</div>` : '';
+			const ch = p.character ? `<p class="muted">Pick a character:</p><div class="chips">${p.characterChoices.map(c => `<button data-p="${esc(p.id)}" data-ch="${esc(c.value)}" class="${s.character === c.value ? 'on' : ''}">${esc(c.label)}</button>`).join('')}</div>` : '';
+			const ready = (!p.players || s.players.length === p.players) && (!p.character || s.character);
+			const send = (p.players || p.character) && !p.yesno ? `<div class="row"><button data-send="${esc(p.id)}" ${ready ? '' : 'disabled'}>${p.kind === 'nominate' ? 'Nominate' : 'Send'}</button></div>` : '';
+			return `<h2>${esc(p.title)}</h2>${p.text ? `<p class="muted">${esc(p.text)}</p>` : ''}${pl}${ch}${yes}${send}${sent}`;
+		}).join('');
+	}
+
+	function label(c) {
+		const nm = id => room?.players.find(p => p.clientId === id)?.name ?? '?';
+		return [c.players?.map(nm).join(' & '), c.character && cname(c.character), typeof c.yes === 'boolean' && (c.yes ? 'Yes' : 'No')].filter(Boolean).join(', ');
+	}
+
+	$('pl-prompts').addEventListener('click', e => {
+		const b = e.target.closest('button');
+		if (!b || !mine) return;
+		const p = (mine.prompts || []).find(x => x.id === (b.dataset.p || b.dataset.send));
+		if (!p) return;
+		const s = sel[p.id];
+		if (b.dataset.yes) {
+			const choice = { yes: b.dataset.yes === '1' };
+			if (p.players) choice.players = s.players;
+			if (p.character) choice.character = s.character;
+			act(peer, p.id, choice);
+		} else if (b.dataset.pl) {
+			const v = b.dataset.pl;
+			s.players = s.players.includes(v) ? s.players.filter(x => x !== v) : [...s.players, v].slice(-p.players);
+			drawPrompts(mine);
+		} else if (b.dataset.ch) {
+			s.character = s.character === b.dataset.ch ? null : b.dataset.ch;
+			drawPrompts(mine);
+		} else if (b.dataset.send) {
+			const choice = {};
+			if (p.players) choice.players = s.players;
+			if (p.character) choice.character = s.character;
+			act(peer, p.id, choice);
+		}
+	});
+
+	function drawTown() {
+		if (!room) { $('pl-phase').textContent = 'The game has closed.'; return; }
+		const seated = room.players.some(p => p.clientId === clientId);
+		const names = id => room.players.find(p => p.clientId === id)?.name ?? '?';
+		$('pl-phase').textContent = room.status === 'lobby' ? `Waiting for ${room.storyteller} to start${seated ? '' : ' (the game is under way: watching)'}`
+			: room.status === 'over' ? `Game over${room.winner ? `: ${room.winner} wins` : ''}` : room.phase === 'night' ? `Night ${room.day + 1}: eyes closed` : `Day ${room.day}`;
+		const r = room.reveal;
+		const rows = room.players.map((p, i) => {
+			const rv = r?.[p.clientId];
+			const shown = rv ? `${icon(rv.character)} <span class="t-${esc(cteam(rv.character))}">${esc(cname(rv.character))}</span>${rv.thinks !== rv.character ? ` <span class="muted">(thought ${esc(cname(rv.thinks))})</span>` : ''}` : '';
+			const ghost = !p.alive ? (p.ghost ? '<span class="muted">ghost vote</span>' : '<span class="muted">no vote</span>') : '';
+			return `<tr><td class="${p.alive ? '' : 'dead'}">${i + 1}. ${esc(p.name)}${p.clientId === clientId ? ' (you)' : ''}</td><td>${ghost}</td><td>${shown}</td></tr>`;
+		}).join('');
+		const nom = room.nom, t = room.today;
+		const vote = nom?.open ? `<p><b>${esc(names(nom.nominator))}</b> nominates <b>${esc(names(nom.nominee))}</b>: vote on your phone (${nom.needed} needed).</p>`
+			: nom ? `<p>${nom.votes} voted to execute ${esc(names(nom.nominee))}${nom.yes.length ? `: ${nom.yes.map(names).map(esc).join(', ')}` : ''}.</p>` : '';
+		const block = t && !t.executed && t.block ? `<p>On the block: <b>${esc(names(t.block))}</b> (${t.top} votes).</p>` : '';
+		$('pl-town').innerHTML = `<table>${rows}</table>${vote}${block}`;
+		$('pl-log').innerHTML = [...room.log].reverse().map(l => `<li>${esc(l)}</li>`).join('');
+		const ids = room.script?.ids || [];
+		$('pl-script').hidden = !ids.length || !lib;
+		if (ids.length && lib) {
+			$('pl-script-name').textContent = `Script: ${room.script.name}`;
+			$('pl-sheet').innerHTML = R.DEALT.map(team => ids.filter(id => cteam(id) === team).map(id => `<li>${icon(id)} <b class="t-${team}">${esc(cname(id))}</b> <span class="muted">${esc(lib.chars[id].ability)}</span></li>`).join('')).join('');
+		}
+	}
+</script>
+{% endblock %}
